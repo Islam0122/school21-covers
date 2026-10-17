@@ -82,25 +82,41 @@ def circle_alpha(size, diameter):
     return np.asarray(m).astype(float) / 255.0
 
 
+def find_circle(rgb):
+    """Центр и радиус эмблемы: эллипс по внешнему краю цветных пикселей.
+    Рамка изображения не годится — эмблема может касаться краёв или быть с полями."""
+    colored = (rgb.max(2) - rgb.min(2)) > 60
+    pts = []
+    for y in range(0, colored.shape[0], 5):
+        xs = np.where(colored[y])[0]
+        if len(xs) > 10:
+            pts += [(xs.min(), y), (xs.max(), y)]
+    for x in range(0, colored.shape[1], 5):
+        ys = np.where(colored[:, x])[0]
+        if len(ys) > 10:
+            pts += [(x, ys.min()), (x, ys.max())]
+    p = np.array(pts, float)
+    x, y = p[:, 0], p[:, 1]
+    # A·x² + B·y² + C·x + D·y = 1
+    A, B, C, D = np.linalg.lstsq(np.c_[x * x, y * y, x, y], np.ones(len(x)), rcond=None)[0]
+    cx, cy = -C / (2 * A), -D / (2 * B)
+    k = 1 + A * cx * cx + B * cy * cy
+    return cx, cy, np.sqrt(k / A), np.sqrt(k / B)
+
+
 def load_logo():
     """Логотип: квадрат по кругу эмблемы, RGBA с круглой альфой."""
     logo = Image.open(LOGO).convert('RGBA')
     a = np.asarray(logo).astype(float)
-    rgb, alpha = a[:, :, :3], a[:, :, 3]
-    if alpha.min() > 250:
-        # непрозрачная картинка: фон — почти белые пиксели по краям
-        content = (rgb.min(2) < 235)
-    else:
-        content = alpha > 128
-    ys, xs = np.where(content)
-    x0, x1, y0, y1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
-    side = max(x1 - x0, y1 - y0)
-    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-    box = (round(cx - side / 2), round(cy - side / 2), round(cx + side / 2), round(cy + side / 2))
-    sq = logo.crop(box)  # пропорции 1:1 — эмблема не растягивается
+    cx, cy, rx, ry = find_circle(a[:, :, :3])
+    # квадрат 1:1 вокруг центра — эмблема не растягивается; не выходим за края картинки
+    r = min(rx, ry, cx, cy, logo.width - cx, logo.height - cy)
+    print(f'Эмблема: центр ({cx:.1f}, {cy:.1f}), радиусы {rx:.1f} × {ry:.1f}, круг r = {r:.1f}')
+    sq = logo.transform((round(2 * r), round(2 * r)), Image.EXTENT,
+                        (cx - r, cy - r, cx + r, cy + r), Image.BICUBIC)
     sq = sq.resize((LOGO_DIAMETER, LOGO_DIAMETER), Image.LANCZOS)
     out = np.asarray(sq).astype(float)
-    # обрезаем по кругу на полпикселя внутри, чтобы не тянуть белый ореол фона
+    # обрезаем по кругу на полпикселя внутри, чтобы не тянуть белый фон вокруг эмблемы
     out[:, :, 3] *= circle_alpha(LOGO_DIAMETER, LOGO_DIAMETER - 1)
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGBA')
 
