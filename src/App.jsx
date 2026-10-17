@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { saveAs } from 'file-saver';
-import { EXPORT_SCALE, canvasToPngBlob, renderCover } from './lib/cover';
+import { EXPORT_SCALE, SCHOOL, canvasToPngBlob, renderCover } from './lib/cover';
 import { buildDocx } from './lib/docx';
 import './App.css';
 
-const SCHOOL = '№21 Жалпы билим берүү мектеби';
 const EMPTY = { fullName: '', className: '', year: '' };
 const YEAR_RE = /^\s*(\d{4})\s*[-–—]\s*(\d{4})\s*$/;
 
