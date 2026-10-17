@@ -1,10 +1,13 @@
 /**
  * Рисование обложки на Canvas.
- * Оригинальный шаблон public/Cover_Template.png используется как фон без изменений —
- * поверх него вписываются только ФИО, класс и учебный год.
+ * Шаблон public/Cover_Template.png (собирается tools/build_template.py) используется как фон —
+ * поверх него вписываются название школы (под логотипом и в строке «Мектеп:»),
+ * ФИО, класс и учебный год.
  *
  * Координаты измерены по пикселям исходного изображения 1087 × 1536.
  */
+export const SCHOOL = '№21 ЖББ мектеби';
+
 export const TEMPLATE = {
   url: `${import.meta.env.BASE_URL}Cover_Template.png`,
   width: 1087,
@@ -12,7 +15,10 @@ export const TEMPLATE = {
   textX: 357, // левый край текста = начало напечатанного «№21 …»
   lineRight: 921, // правый край линий
   baselineAboveLine: 14, // базовая линия текста над чертой
-  lines: { fullName: 967, className: 1028, year: 1089 },
+  lines: { school: 900, fullName: 967, className: 1028, year: 1089 },
+  // Название школы под логотипом: по центру, тем же шрифтом и цветом, что был в оригинале
+  // (размер подобран по ширине прежней строки «№21 Жалпы билим берүү мектеби»: 207…882 px)
+  header: { centerX: 545, baseline: 493, color: '#18372e', fontSize: 42 },
   textColor: '#1f2e2b',
   fontFamily: '"PT Serif", "Times New Roman", serif',
   baseFontSize: 26.5, // совпадает по ширине с напечатанной строкой школы
@@ -46,7 +52,7 @@ let fontPromise = null;
 export function loadFonts() {
   if (!fontPromise) {
     fontPromise = document.fonts
-      .load(`${TEMPLATE.baseFontSize}px "PT Serif"`, 'АаЖжҮүҢңӨө№0123456789–-')
+      .load(`${TEMPLATE.baseFontSize}px "PT Serif"`, 'АаЖжБҮүҢңӨө№0123456789–-')
       .then((faces) => {
         if (!faces.length) throw new Error('Шрифт PT Serif не загрузился.');
       })
@@ -92,6 +98,25 @@ function drawOnLine(ctx, text, lineY, scale) {
   ctx.restore();
 }
 
+function drawHeader(ctx, text, scale) {
+  const { centerX, baseline, color, fontSize } = TEMPLATE.header;
+  ctx.save();
+  ctx.font = `${fontSize * scale}px ${TEMPLATE.fontFamily}`;
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  // центрируем по видимым границам букв, как было напечатано на шаблоне
+  const m = ctx.measureText(text);
+  const x = centerX * scale - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2;
+  ctx.filter = `blur(${0.3 * scale}px)`;
+  ctx.lineWidth = 0.45 * scale;
+  ctx.lineJoin = 'round';
+  ctx.fillText(text, x, baseline * scale);
+  ctx.strokeText(text, x, baseline * scale);
+  ctx.restore();
+}
+
 /**
  * @param {HTMLCanvasElement} canvas
  * @param {{fullName: string, className: string, year: string}} data
@@ -108,7 +133,8 @@ export async function renderCover(canvas, data, scale = 1) {
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  // Школа уже напечатана на шаблоне — повторно не рисуем
+  drawHeader(ctx, SCHOOL, scale);
+  drawOnLine(ctx, SCHOOL, TEMPLATE.lines.school, scale);
   drawOnLine(ctx, data.fullName, TEMPLATE.lines.fullName, scale);
   drawOnLine(ctx, data.className, TEMPLATE.lines.className, scale);
   drawOnLine(ctx, data.year, TEMPLATE.lines.year, scale);
