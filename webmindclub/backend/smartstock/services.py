@@ -89,7 +89,8 @@ def on_order_by_product(store: Store) -> dict[int, int]:
     return {r["items__product_id"]: r["units"] for r in rows if r["items__product_id"]}
 
 
-def analyse_product(product: Product, units_sold: int, on_order: int, default_lead_time: int, today=None) -> list[dict]:
+def analyse_product(product: Product, units_sold: int, on_order: int, default_lead_time: int, today=None,
+                    currency: str = "USD") -> list[dict]:
     """Pure function producing explainable recommendations for one product."""
     today = today or timezone.localdate()
     recs: list[dict] = []
@@ -137,9 +138,9 @@ def analyse_product(product: Product, units_sold: int, on_order: int, default_le
                 "kind": AIRecommendation.Kind.OVERSTOCK, "severity": AIRecommendation.Severity.MEDIUM if capital > 200 else AIRecommendation.Severity.LOW,
                 "title": f"Overstock: {product.name}",
                 "reason": (f"{product.stock} units on hand is {cover_txt} at the current sales rate ({avg:.1f}/day). "
-                           f"About {excess} units ({capital} of capital) exceed a 60-day supply."),
+                           f"About {excess} units ({capital} {currency} of capital) exceed a 60-day supply."),
                 "action": (f"Pause reordering and run a 10–15% promotion to sell down ~{excess} units. "
-                           f"Releasing this stock avoids an estimated {savings} in yearly carrying cost (25% rate)."),
+                           f"Releasing this stock avoids an estimated {savings} {currency} in yearly carrying cost (25% rate)."),
                 "recommended_quantity": 0, "potential_savings": savings,
                 "metrics": {**metrics, "excess_units": excess, "capital_tied": str(capital)},
             })
@@ -161,7 +162,7 @@ def analyse_product(product: Product, units_sold: int, on_order: int, default_le
                                f"{product.stock} units are expected to sell in time, leaving {at_risk} at risk."),
                     "action": ("Remove expired units from sale and record a write-off." if expired else
                                f"Discount by 20–30% and move to a high-visibility shelf; do not reorder before "
-                               f"the batch is sold. Up to {loss} in purchase cost can be recovered."),
+                               f"the batch is sold. Up to {loss} {currency} in purchase cost can be recovered."),
                     "recommended_quantity": 0, "potential_savings": money(0) if expired else loss,
                     "metrics": {**metrics, "days_to_expiry": days_left, "units_at_risk": at_risk},
                 })
@@ -175,7 +176,8 @@ def regenerate_recommendations(store: Store) -> list[AIRecommendation]:
     store.recommendations.filter(status=AIRecommendation.Status.OPEN).delete()
     created = []
     for product in store.products.select_related("supplier"):
-        for rec in analyse_product(product, sold.get(product.pk, 0), on_order.get(product.pk, 0), store.default_lead_time_days):
+        for rec in analyse_product(product, sold.get(product.pk, 0), on_order.get(product.pk, 0), store.default_lead_time_days,
+                                   currency=store.currency):
             created.append(AIRecommendation(store=store, product=product, **rec))
     AIRecommendation.objects.bulk_create(created)
     return created

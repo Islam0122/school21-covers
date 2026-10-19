@@ -47,6 +47,17 @@ class CsrfView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class SessionView(APIView):
+    """Returns the current user or null, without a 403 for anonymous visitors."""
+
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(responses={200: dict})
+    def get(self, request):
+        user = request.user if request.user.is_authenticated else None
+        return Response({"user": UserSerializer(user, context={"request": request}).data if user else None})
+
+
 class RegisterView(AuthThrottleMixin, APIView):
     permission_classes = [permissions.AllowAny]
 

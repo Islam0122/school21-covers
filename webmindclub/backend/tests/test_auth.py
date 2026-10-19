@@ -84,3 +84,8 @@ def test_demo_users_cannot_log_in(db):
     u = User.objects.create_user(email="demo@demo.local", password="whatever-Pass1", is_demo=True)
     res = APIClient().post("/api/auth/login/", {"email": u.email, "password": "whatever-Pass1"}, format="json")
     assert res.status_code == 400
+
+
+def test_session_endpoint_for_anonymous_and_authenticated(api):
+    assert APIClient().get("/api/auth/session/").data == {"user": None}
+    assert api.get("/api/auth/session/").data["user"]["email"] == "owner@example.com"
