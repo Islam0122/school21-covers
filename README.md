@@ -1,3 +1,5 @@
+> **WebMindClub** — the digital product studio platform (Django REST + React) lives in [`webmindclub/`](webmindclub/README.md).
+
 # Генератор обложек школы №21
 
 Веб-приложение на React + Vite (JavaScript) для создания обложки «Окуучунун иши» по оригинальному шаблону. Дизайн шаблона не меняется: поверх него вписываются только ФИО, класс и учебный год. Всё работает в браузере, без backend, базы данных и API.
